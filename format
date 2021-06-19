@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+ocamlformat -i src/*.ml
+ocp-indent -i src/*.ml

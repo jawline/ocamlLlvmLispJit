@@ -1,0 +1,13 @@
+(ocamllex
+ (modules lexer))
+
+(ocamlyacc
+ (modules parser))
+
+(library
+ (name json)
+ (libraries core ctypes.foreign llvm llvm.analysis llvm.executionengine
+   llvm.target llvm.scalar_opts)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test ppx_jane ppx_expect ppx_let)))
