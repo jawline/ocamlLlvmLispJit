@@ -50,18 +50,19 @@ let rec typecheck ?(scope = Hashtbl.create (module String)) (expr : t) : t =
   | Binary (op, lhs, rhs) -> Binary (op, typecheck ~scope lhs, typecheck ~scope rhs)
   | Atom v -> Atom v
   | If (cnd, lhs, rhs) ->
+    let cnd = typecheck ~scope cnd in
     let cnd_type = type_ cnd in
     if phys_equal cnd_type BoolType
        || phys_equal cnd_type IntType
        || phys_equal cnd_type FloatType
-    then If (typecheck ~scope cnd, typecheck ~scope lhs, typecheck ~scope rhs)
+    then If (cnd, typecheck ~scope lhs, typecheck ~scope rhs)
     else raise_s [%message "Conditional must be int bool or float"]
   | Variable (name, _) ->
     (match Hashtbl.find scope name with
     | Some v -> Variable (name, Some v)
     | None -> raise_s [%message "The variable name " name " is not in scope"])
   | Let (name, assignment_expr, in_expr) ->
-    let assignment_expr = typecheck assignment_expr in
+    let assignment_expr = typecheck ~scope assignment_expr in
     let assignment_expr_type = type_ assignment_expr in
     let scope = Hashtbl.copy scope in
     Hashtbl.set scope ~key:name ~data:assignment_expr_type;

@@ -94,33 +94,47 @@ let run_program ast : Value.t =
   | _ -> raise_s [%message "Broken " (Value.show r)]
 ;;*)
 
-let%test "let_test_float" =
+let%test "let test float" =
   let r = run_program (parse "(let a 4.0 (let b 3.0 (+ a b)))") in
   match r with
   | Value.Float 7.0 -> true
   | _ -> raise_s [%message "Broken " (Value.show r)]
 ;;
 
-let%test "let_test_int" =
+let%test "let test int" =
   let r = run_program (parse "(let a 6 (let b 69 (+ a b)))") in
   match r with
   | Value.Int 75 -> true
   | _ -> raise_s [%message "Broken " (Value.show r)]
 ;;
 
-let%test "let_test_if" =
+let%test "trivial if" =
+  let r = run_program (parse "(if 0 5 10)") in
+  match r with
+  | Value.Int 10 -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;
+
+let%test "trivial if float" =
+  let r = run_program (parse "(if 0.0 5.0 10.0)") in
+  match r with
+  | Value.Float 10.0 -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;
+
+let%test "let test if" =
   let r = run_program (parse "(let a 6 (let b 69 (if a a b)))") in
   match r with
   | Value.Int 6 -> true
   | _ -> raise_s [%message "Broken " (Value.show r)]
 ;;
 
-let%test "parse_example" =
+let%test "parse example" =
   ignore (Ast.typecheck (parse "(let a 6 (+ a a))") : Ast.t);
   true
 ;;
 
-let%test "parse_broken_example" =
+let%test "parse broken example" =
   try
     ignore (Ast.typecheck (parse "(let a 6 (+ a b))") : Ast.t);
     false
