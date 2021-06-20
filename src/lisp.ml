@@ -87,12 +87,12 @@ let run_program ast : Value.t =
   result
 ;;
 
-(*let%test "double_atom_test" =
+let%test "double atom test" =
   let r = run_program (parse "51.3") in
   match r with
   | Value.Float (51.3) -> true
   | _ -> raise_s [%message "Broken " (Value.show r)]
-;;*)
+;;
 
 let%test "let test float" =
   let r = run_program (parse "(let a 4.0 (let b 3.0 (+ a b)))") in
