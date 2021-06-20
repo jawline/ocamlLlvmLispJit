@@ -35,15 +35,20 @@ expr:
     | Some code -> (
       match $3 with
       | [lhs; rhs ] -> Ast.Binary (code, lhs, rhs)
-      | _ -> raise_s (Sexp.of_string "Invalid application of special form")
+      | _ -> raise_s [%message "Invalid application of special form"]
     )
     | _ ->
     match $2 with
     | "let" -> (
       match $3 with
       | [ Ast.Variable (name, None); assign_to_expr; in_expr ] -> Ast.Let (name, assign_to_expr, in_expr)
-      | _ -> raise_s (Sexp.of_string "Invalid form for let")
+      | _ -> raise_s [%message "Invalid form for let"]
     )
-    | _ -> raise_s (Sexp.of_string "Unknown application")
+    | "if" -> (
+      match $3 with
+        | [ cnd_expr; then_expr; else_expr ] -> Ast.If (cnd_expr, then_expr, else_expr)
+        | _ -> raise_s [%message "Invalid form for if"]
+    )
+    | _ -> raise_s [%message "Unknown application"]
   }
 ;;

@@ -22,11 +22,16 @@ type t =
   | Atom of Value.t
   | Variable of (string * Type.t option)
   | Let of (string * t * t)
+  | If of (t * t * t)
   | Print of t
 
 let rec type_ (expr : t) : Type.t =
   match expr with
   | Binary (_, lhs, rhs) ->
+    let t1 = type_ lhs in
+    let t2 = type_ rhs in
+    if phys_equal t1 t2 then t1 else raise_s [%message "Invalid Binary Op"]
+  | If (_, lhs, rhs) ->
     let t1 = type_ lhs in
     let t2 = type_ rhs in
     if phys_equal t1 t2 then t1 else raise_s [%message "Invalid Binary Op"]
@@ -44,6 +49,9 @@ let rec typecheck ?(scope = Hashtbl.create (module String)) (expr : t) : t =
   match expr with
   | Binary (op, lhs, rhs) -> Binary (op, typecheck ~scope lhs, typecheck ~scope rhs)
   | Atom v -> Atom v
+  | If (cnd, lhs, rhs) ->
+    let cnd_type = type_ cnd in
+    if phys_equal cnd_type BoolType || phys_equal cnd_type IntType || phys_equal cnd_type FloatType then If (typecheck ~scope cnd, typecheck ~scope lhs, typecheck ~scope rhs) else raise_s [%message "Conditional must be int bool or float"]
   | Variable (name, _) ->
     (match Hashtbl.find scope name with
     | Some v -> Variable (name, Some v)

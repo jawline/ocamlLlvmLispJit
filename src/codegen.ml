@@ -79,6 +79,13 @@ let rec to_codegen
         raise_s
           [%message (Type.show (Ast.type_ lhs)) " cannot be used in binary remainder"])
   in
+  let build_if cnd =
+    match (Ast.type_ cnd) with
+    | BoolType -> Llvm.build_icmp Llvm.Icmp.Ne (Llvm.const_int (to_llvm_type ~context BoolType) 0) (r cnd) "tmp_cnd_compare" builder
+    | IntType -> Llvm.build_icmp Llvm.Icmp.Ne (Llvm.const_int (to_llvm_type ~context IntType) 0) (r cnd) "tmp_cnd_compare" builder
+    | FloatType -> Llvm.build_fcmp Llvm.Fcmp.Une (Llvm.const_float (to_llvm_type ~context FloatType) 0.0) (r cnd) "tmp_cnd_compare" builder
+    | _ -> raise_s [%message "Type incompatible with conditional"]
+  in
   match t with
   | Binary (op, lhs, rhs) -> to_llvm_binop op lhs rhs
   | Atom const_val -> to_llvm_atom ~context const_val
@@ -86,6 +93,9 @@ let rec to_codegen
     (match Hashtbl.find scope name with
     | Some v -> Llvm.build_load v name builder
     | None -> raise_s [%message "No variable " name])
+  | If (cnd, lhs, rhs) ->
+    let cnd_gen = build_if cnd in
+    Llvm.build_select cnd_gen (r lhs) (r rhs) "tmp_cnd_result" builder
   | Let (name, value, inexpr) ->
     let scope = Hashtbl.copy scope in
     llvm_alloca scope name value;

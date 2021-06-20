@@ -108,6 +108,13 @@ let%test "let_test_int" =
   | _ -> raise_s [%message "Broken " (Value.show r)]
 ;;
 
+let%test "let_test_if" =
+  let r = run_program (parse "(let a 6 (let b 69 (if a a b)))") in
+  match r with
+  | Value.Int 6 -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;
+
 let%test "parse_example" =
   ignore (Ast.typecheck (parse "(let a 6 (+ a a))") : Ast.t);
   true
