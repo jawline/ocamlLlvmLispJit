@@ -80,10 +80,28 @@ let rec to_codegen
           [%message (Type.show (Ast.type_ lhs)) " cannot be used in binary remainder"])
   in
   let build_if cnd =
-    match (Ast.type_ cnd) with
-    | BoolType -> Llvm.build_icmp Llvm.Icmp.Ne (Llvm.const_int (to_llvm_type ~context BoolType) 0) (r cnd) "tmp_cnd_compare" builder
-    | IntType -> Llvm.build_icmp Llvm.Icmp.Ne (Llvm.const_int (to_llvm_type ~context IntType) 0) (r cnd) "tmp_cnd_compare" builder
-    | FloatType -> Llvm.build_fcmp Llvm.Fcmp.Une (Llvm.const_float (to_llvm_type ~context FloatType) 0.0) (r cnd) "tmp_cnd_compare" builder
+    match Ast.type_ cnd with
+    | BoolType ->
+      Llvm.build_icmp
+        Llvm.Icmp.Ne
+        (Llvm.const_int (to_llvm_type ~context BoolType) 0)
+        (r cnd)
+        "tmp_cnd_compare"
+        builder
+    | IntType ->
+      Llvm.build_icmp
+        Llvm.Icmp.Ne
+        (Llvm.const_int (to_llvm_type ~context IntType) 0)
+        (r cnd)
+        "tmp_cnd_compare"
+        builder
+    | FloatType ->
+      Llvm.build_fcmp
+        Llvm.Fcmp.Une
+        (Llvm.const_float (to_llvm_type ~context FloatType) 0.0)
+        (r cnd)
+        "tmp_cnd_compare"
+        builder
     | _ -> raise_s [%message "Type incompatible with conditional"]
   in
   match t with

@@ -51,7 +51,11 @@ let rec typecheck ?(scope = Hashtbl.create (module String)) (expr : t) : t =
   | Atom v -> Atom v
   | If (cnd, lhs, rhs) ->
     let cnd_type = type_ cnd in
-    if phys_equal cnd_type BoolType || phys_equal cnd_type IntType || phys_equal cnd_type FloatType then If (typecheck ~scope cnd, typecheck ~scope lhs, typecheck ~scope rhs) else raise_s [%message "Conditional must be int bool or float"]
+    if phys_equal cnd_type BoolType
+       || phys_equal cnd_type IntType
+       || phys_equal cnd_type FloatType
+    then If (typecheck ~scope cnd, typecheck ~scope lhs, typecheck ~scope rhs)
+    else raise_s [%message "Conditional must be int bool or float"]
   | Variable (name, _) ->
     (match Hashtbl.find scope name with
     | Some v -> Variable (name, Some v)
