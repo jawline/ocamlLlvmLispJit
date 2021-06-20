@@ -5,7 +5,7 @@
  (modules parser))
 
 (library
- (name json)
+ (name lisp)
  (libraries core ctypes.foreign llvm llvm.analysis llvm.executionengine
    llvm.target llvm.scalar_opts)
  (inline_tests)
