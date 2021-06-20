@@ -1,3 +1,5 @@
+open Core
+
 type binary_op =
   | Add
   | Subtract
@@ -18,20 +20,39 @@ let string_to_opcode opcode =
 type t =
   | Binary of (binary_op * t * t)
   | Atom of Value.t
-  | Variable of string
+  | Variable of (string * Type.t option)
   | Let of (string * t * t)
   | Print of t
 
-let rec check ?(scope : string list = []) (expr : t) =
+let rec type_ (expr : t) : Type.t =
   match expr with
-  | Binary (_, lhs, rhs) -> check ~scope lhs && check ~scope rhs
-  | Atom _ -> true
-  | Variable name ->
-    (match Stack_scope.stack_location scope name with
-    | Some _ -> true
-    | None -> false)
+  | Binary (_, lhs, rhs) ->
+    let t1 = type_ lhs in
+    let t2 = type_ rhs in
+    if phys_equal t1 t2 then t1 else raise_s [%message "Invalid Binary Op"]
+  | Atom v -> Value.value_to_type v
+  | Variable (name, t) ->
+    (match t with
+    | Some t -> t
+    | None -> raise_s [%message "Variable " name " is not in scope"])
+  | Let (_, _, in_expr) -> type_ in_expr
+  | Print _ -> UnitType
+;;
+
+(* TODO: Actually do type checking here *)
+let rec typecheck ?(scope = Hashtbl.create (module String)) (expr : t) : t =
+  match expr with
+  | Binary (op, lhs, rhs) -> Binary (op, typecheck ~scope lhs, typecheck ~scope rhs)
+  | Atom v -> Atom v
+  | Variable (name, _) ->
+    (match Hashtbl.find scope name with
+    | Some v -> Variable (name, Some v)
+    | None -> raise_s [%message "The variable name " name " is not in scope"])
   | Let (name, assignment_expr, in_expr) ->
-    check ~scope assignment_expr
-    && check ~scope:(Stack_scope.push_scope scope name) in_expr
-  | Print expr -> check expr ~scope
+    let assignment_expr = typecheck assignment_expr in
+    let assignment_expr_type = type_ assignment_expr in
+    let scope = Hashtbl.copy scope in
+    Hashtbl.set scope ~key:name ~data:assignment_expr_type;
+    Let (name, assignment_expr, typecheck ~scope in_expr)
+  | Print k -> Print k
 ;;

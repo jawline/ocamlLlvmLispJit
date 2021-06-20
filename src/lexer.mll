@@ -9,8 +9,10 @@ rule token = parse
 | "true" { TRUE }
 | "false" { FALSE }
 | ['a'-'z' 'A'-'Z' '+' '-' '*' '/' '%']+ as ident { IDENT ident }
-| ['0'-'9']+ ('.' ['0'-'9']+ )? as i
-    { NUMBER (float_of_string i) }
+| ['0'-'9']+ ('.' ['0'-'9']+ ) as i
+    { FLOAT (float_of_string i) }
+| ['0'-'9']+ as i
+    { INT (int_of_string i) }
 | '\'' { read_string (Buffer.create 128) lexbuf }
 | '(' { OPEN }
 | ')' { CLOSE }

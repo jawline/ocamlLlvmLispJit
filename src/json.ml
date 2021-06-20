@@ -4,18 +4,18 @@ type t = Ast.t
 
 let parse (json : string) : t =
   let linebuf = Lexing.from_string json in
-  Parser.main Lexer.token linebuf
+  Ast.typecheck (Parser.main Lexer.token linebuf)
 ;;
 
-let jit_engine () =
+let jit_engine ~module_ () =
   (match Llvm_executionengine.initialize () with
   | true -> ()
   | false -> raise_s [%message "failed to initialize"]);
-  Llvm_executionengine.create Codegen.the_module
+  Llvm_executionengine.create module_
 ;;
 
-let optimizer () =
-  let the_fpm = Llvm.PassManager.create_function Codegen.the_module in
+let optimizer ~module_ () =
+  let the_fpm = Llvm.PassManager.create_function module_ in
   (* Promote allocas to registers. *)
   Llvm_scalar_opts.add_memory_to_register_promotion the_fpm;
   (* Do simple "peephole" optimizations and bit-twiddling optzn. *)
@@ -30,29 +30,93 @@ let optimizer () =
   the_fpm
 ;;
 
-let run_program () : float =
+let run_program ast : Value.t =
+  (* Create the LLVM context and codegen apperatus *)
+  let context = Llvm.global_context () in
+  let module_ = Llvm.create_module context "mod" in
+  let builder = Llvm.builder context in
   (* Create the JIT *)
-  let the_execution_engine = jit_engine () in
-  let the_fpm = optimizer () in
+  let the_execution_engine = jit_engine ~module_ () in
+  let the_fpm = optimizer ~module_ () in
   (* Generate our program *)
-  let program = Codegen.create_program the_fpm in
-  Llvm_executionengine.add_module Codegen.the_module the_execution_engine;
-  printf "Dumping program\n";
+  let program = Codegen.create_program ~context ~module_ ~builder ast the_fpm in
+  Llvm_executionengine.add_module module_ the_execution_engine;
+  (* Dump the program to stdout for debugging *)
   Llvm.dump_value program;
-  printf "Done\n";
-  (* JIT the function, returning a function pointer. *)
-  let fp =
-    Llvm_executionengine.get_function_address
-      "main"
-      (Foreign.funptr Ctypes.(void @-> returning double))
-      the_execution_engine
+  (* JIT the function, execute it then return the value *)
+  let result =
+    match Ast.type_ ast with
+    | FloatType ->
+      let fp =
+        Llvm_executionengine.get_function_address
+          "main"
+          (Foreign.funptr Ctypes.(void @-> returning double))
+          the_execution_engine
+      in
+      let result = fp () in
+      Value.Float result
+    | IntType ->
+      let fp =
+        Llvm_executionengine.get_function_address
+          "main"
+          (Foreign.funptr Ctypes.(void @-> returning int))
+          the_execution_engine
+      in
+      let result = fp () in
+      Value.Int result
+    | BoolType ->
+      let fp =
+        Llvm_executionengine.get_function_address
+          "main"
+          (Foreign.funptr Ctypes.(void @-> returning bool))
+          the_execution_engine
+      in
+      let result = fp () in
+      Value.Bool result
+    | UnitType ->
+      let fp =
+        Llvm_executionengine.get_function_address
+          "main"
+          (Foreign.funptr Ctypes.(void @-> returning void))
+          the_execution_engine
+      in
+      fp ();
+      Value.Unit
   in
-  (* Execute the JITed method and collect the result *)
-  let result_of_program = fp () in
-  Llvm_executionengine.remove_module Codegen.the_module the_execution_engine;
-  result_of_program
+  Llvm_executionengine.remove_module module_ the_execution_engine;
+  result
 ;;
 
-let%test "program_test" = Float.( = ) (run_program ()) 5.0
-let%test "parse_example" = Ast.check (parse "(let 'a' 6 (+ a a))")
-let%test "parse_broken_example" = not (Ast.check (parse "(let 'a' 6 (+ a b))"))
+(*let%test "double_atom_test" =
+  let r = run_program (parse "51.3") in
+  match r with
+  | Value.Float (51.3) -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;*)
+
+let%test "let_test_float" =
+  let r = run_program (parse "(let a 4.0 (let b 3.0 (+ a b)))") in
+  match r with
+  | Value.Float 7.0 -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;
+
+let%test "let_test_int" =
+  let r = run_program (parse "(let a 6 (let b 69 (+ a b)))") in
+  match r with
+  | Value.Int 75 -> true
+  | _ -> raise_s [%message "Broken " (Value.show r)]
+;;
+
+let%test "parse_example" =
+  ignore (Ast.typecheck (parse "(let a 6 (+ a a))") : Ast.t);
+  true
+;;
+
+let%test "parse_broken_example" =
+  try
+    ignore (Ast.typecheck (parse "(let a 6 (+ a b))") : Ast.t);
+    false
+  with
+  | _ -> true
+;;
